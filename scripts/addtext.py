@@ -15,19 +15,19 @@ import os
 import scipy.ndimage
 import numpy as np
 from UnionFind import UnionFind # Taken from https://www.ics.uci.edu/~eppstein/PADS/UnionFind.py
+import helper
 
 TEXT_BORDER=7
 
 
-def white_out_text(img,connected_components,max_size=0,min_size=0,color=(255,255,255)):
-  for component in connected_components:
-    if min_size > 0 and area_bb(component)**0.5<min_size: continue
-    if max_size > 0 and area_bb(component)**0.5>max_size: continue
-    #a = area_nz(component,img)
-    #if a<min_size: continue
-    #if a>max_size: continue
-    (ys,xs)=component[:2]
-    cv2.rectangle(img,(xs.start,ys.start),(xs.stop,ys.stop),color,-1)
+def white_out_text(img,component,max_size=0,min_size=0,color=(255,255,255)):
+	if min_size > 0 and area_bb(component)**0.5<min_size: return
+	if max_size > 0 and area_bb(component)**0.5>max_size: return
+	#a = area_nz(component,img)
+	#if a<min_size: continue
+	#if a>max_size: continue
+	(ys,xs)=component[:2]
+	cv2.rectangle(img,(xs.start,ys.start),(xs.stop,ys.stop),color,-1)
 
 def scale_components(connected_components, factor=TEXT_BORDER):
 	new_comps = []
@@ -61,7 +61,17 @@ def add_text(img, component, text=None):
 			cv2.putText(img, line, (component[1].start, i), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,0))
 
 	else:
-		cv2.putText(img, text, (component[1].start, component[0].stop), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,0))
+		index = 0
+		line = text[index]
+		while text_within(component, line, x=True):
+			index += 1
+			line += text[index]
+		lines = [line]
+		for i in range(index, len(text), index):
+			lines.append(text[i:i+index])
+		lines.append(text[i:])
+		for line, i in enumerate(range(component[0].start + height, component[0].stop+height, height)):
+			cv2.putText(img, lines[line], (component[1].start, component[0].stop), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,0))
 
 
 def overlaps(comp1, comp2):
@@ -107,6 +117,26 @@ def get_connected_components(img):
 		max_x = max(comps, key=lambda item: item[3])[3]
 		connected_comps.append((slice(min_y, max_y), slice(min_x, max_x)))
 	return connected_comps
+
+
+def translate_page(img, binary_threshold=defaults.BINARY_THRESHOLD):
+  gray = clean.grayscale(img)
+
+  inv_binary = cv2.bitwise_not(clean.binarize(gray, threshold=binary_threshold))
+  binary = clean.binarize(gray, threshold=binary_threshold)
+
+  segmented_image = seg.segment_image(gray)
+  segmented_image = segmented_image[:,:,2]
+
+  components = get_connected_components(segmented_image)
+
+  for component in components:
+  	speech = img[component]
+  	translation = helper.ocr(speech)
+	white_out_text(img, component)
+  	add_text(img, component, translation)
+  #cc.draw_bounding_boxes(img,components,color=(255,0,0),line_size=2)
+  return img
 	
 
 if __name__ == '__main__':
@@ -133,26 +163,7 @@ if __name__ == '__main__':
     print 'Please provide a regular existing input file. Use -h option for help.'
     sys.exit(-1)
   img = cv2.imread(infile)
-  gray = clean.grayscale(img)
-
-  binary_threshold=arg.integer_value('binary_threshold',default_value=defaults.BINARY_THRESHOLD)
-  if arg.boolean_value('verbose'):
-    print 'Binarizing with threshold value of ' + str(binary_threshold)
-  inv_binary = cv2.bitwise_not(clean.binarize(gray, threshold=binary_threshold))
-  binary = clean.binarize(gray, threshold=binary_threshold)
-
-
-  segmented_image = seg.segment_image(gray)
-  segmented_image = segmented_image[:,:,2]
-
-
-  components = get_connected_components(segmented_image)
-
-
-  white_out_text(img, components)
-  for component in components:
-  	add_text(img, component)
-  cc.draw_bounding_boxes(img,components,color=(255,0,0),line_size=2)
+  translate_page(img)
   cv2.imshow("Hi", img)
   cv2.waitKey(0)
-  cv2.destroyAllWindows()
+  cv2.destroyAllWindows()  
