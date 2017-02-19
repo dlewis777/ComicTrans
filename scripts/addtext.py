@@ -71,7 +71,8 @@ def add_text(img, component, text=None):
 			lines.append(text[i:i+index])
 		lines.append(text[i:])
 		for line, i in enumerate(range(component[0].start + height, component[0].stop+height, height)):
-			cv2.putText(img, lines[line], (component[1].start, component[0].stop), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,0))
+			if line >= len(lines): break
+			cv2.putText(img, lines[line], (component[1].start, i), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,0))
 
 
 def overlaps(comp1, comp2):
@@ -91,10 +92,8 @@ def overlaps(comp1, comp2):
 
 
 def get_connected_components(img):
-	components = cc.get_connected_components(segmented_image)
+	components = cc.get_connected_components(img)
 	components = scale_components(components)
-	comp_img = np.zeros((img.shape[0], img.shape[1], 1))
-	white_out_text(comp_img, components, color=1)
 	connected = UnionFind()
 	for comp1 in components:
 		for comp2 in components:
@@ -132,7 +131,10 @@ def translate_page(img, binary_threshold=defaults.BINARY_THRESHOLD):
 
   for component in components:
   	speech = img[component]
-  	translation = helper.ocr(speech)
+  	try:
+  		translation = helper.ocr(speech)
+  	except:
+  		continue
 	white_out_text(img, component)
   	add_text(img, component, translation)
   #cc.draw_bounding_boxes(img,components,color=(255,0,0),line_size=2)

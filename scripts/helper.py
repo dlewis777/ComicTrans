@@ -10,7 +10,9 @@ api_key = os.environ['GT_API_KEY']
 
 #ocr for japanese
 def ocr(pic):
-
+	cv2.imshow("Hi", pic)
+	cv2.waitKey(0)
+	cv2.destroyAllWindows() 
 	cv2.imwrite('temp.jpg', pic)
 	vision_client = vision.Client(api_key)
 	with io.open('temp.jpg', 'rb') as image_file:
