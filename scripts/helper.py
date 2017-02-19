@@ -10,7 +10,7 @@ import cv2
 import time
 api_key = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
  #ocr for japanese
-def ocr(pic):
+def ocr(pic, target_lang="en"):
 	#print api_key
 	#print pic
 	# cv2.imshow("Hi", pic)
@@ -29,7 +29,7 @@ def ocr(pic):
 		# print("to")
 		# print(google_translate(text.description.strip()))
 		# print("end translate\n")
-		translations.append(google_translate(text.description.strip()))
+		translations.append(google_translate(text.description.strip(), target_lang))
 		#time.sleep(.1)
 	# 	print text.description
 	# 	print google_
@@ -38,12 +38,12 @@ def ocr(pic):
 	return " ".join(translations)
 #Target: target language
 
-def google_translate(text):
+def google_translate(text, target_lang):
 	# print("translating text")
 	# print(text)
 	# print("under text")
 	trans_client = translate.Client()
-	translation = trans_client.translate(text)
+	translation = trans_client.translate(text, target_language=target_lang)
 
 	# print("finished translation")
 	return translation['translatedText']

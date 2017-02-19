@@ -22,7 +22,7 @@ import helper
 
 FONT = cv2.FONT_HERSHEY_TRIPLEX
 FONT_SIZE = .4
-TEXT_BORDER=10
+TEXT_BORDER=8
 
 
 def white_out_text(img,component,max_size=0,min_size=0,color=(255,255,255)):
@@ -87,7 +87,7 @@ def add_text(img, component, text=None):
         # for i in range(index, len(text), index):
         #     lines.append(text[i:i+index])
         # lines.append(text[i+index:])
-        print lines
+        #print lines
         for line, i in enumerate(range(component[0].start + height, component[0].stop+height, height)):
             if line >= len(lines): break
             lines[line]
@@ -138,7 +138,7 @@ def get_connected_components(img):
     return connected_comps
 
 
-def translate_page(img, binary_threshold=defaults.BINARY_THRESHOLD):
+def translate_page(img, binary_threshold=defaults.BINARY_THRESHOLD, boxes = False, target_lang="en"):
   gray = clean.grayscale(img)
 
   inv_binary = cv2.bitwise_not(clean.binarize(gray, threshold=binary_threshold))
@@ -153,13 +153,13 @@ def translate_page(img, binary_threshold=defaults.BINARY_THRESHOLD):
     speech = img[component]
     if speech.shape[0] <=0 or speech.shape[1] <=0:
         continue
-    translation = helper.ocr(speech)
+    translation = helper.ocr(speech, target_lang)
     if len(translation) > 0:
         #print "added component", translation
         white_out_text(img, component)
         add_text(img, component, translation)
-
-  cc.draw_bounding_boxes(img,components,color=(255,0,0),line_size=2)
+  if boxes:
+    cc.draw_bounding_boxes(img,components,color=(255,0,0),line_size=2)
   return img
     
 
@@ -178,6 +178,8 @@ if __name__ == '__main__':
   parser.add_argument('--binary_threshold', help='Binarization threshold value from 0 to 255.',type=int,default=defaults.BINARY_THRESHOLD)
   #parser.add_argument('--segment_threshold', help='Threshold for nonzero pixels to separete vert/horiz text lines.',type=int,default=1)
   parser.add_argument('--additional_filtering', help='Attempt to filter false text positives by histogram processing.', action="store_true")
+  parser.add_argument('--bounding_boxes', help="added bounding boxes for ocr regions", type=bool, default=False)
+  parser.add_argument('--target_lang', help="target language of translation,",type=str,default="en")
   arg.value = parser.parse_args()
 
   infile = arg.string_value('infile')
@@ -187,7 +189,7 @@ if __name__ == '__main__':
     print('Please provide a regular existing input file. Use -h option for help.')
     sys.exit(-1)
   img = cv2.imread(infile)
-  translate_page(img)
+  translate_page(img, boxes=arg.value.bounding_boxes, target_lang = arg.string_value('target_lang'))
   cv2.imwrite(arg.string_value('outfile'), img)
   cv2.imshow("Hi", img)
   cv2.waitKey(0)
