@@ -131,12 +131,10 @@ def translate_page(img, binary_threshold=defaults.BINARY_THRESHOLD):
 
   for component in components:
   	speech = img[component]
-  	try:
-  		translation = helper.ocr(speech)
-  	except:
-  		continue
-	white_out_text(img, component)
-  	add_text(img, component, translation)
+  	translation = helper.ocr(speech)
+  	if len(translation) > 0:
+		white_out_text(img, component)
+  		add_text(img, component, translation)
   #cc.draw_bounding_boxes(img,components,color=(255,0,0),line_size=2)
   return img
 	
