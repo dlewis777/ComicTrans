@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 import cv2
 import sys
 sys.path.append('../../MangaTextDetection')
@@ -17,105 +19,123 @@ import numpy as np
 from UnionFind import UnionFind # Taken from https://www.ics.uci.edu/~eppstein/PADS/UnionFind.py
 import helper
 
-TEXT_BORDER=7
+
+FONT = cv2.FONT_HERSHEY_TRIPLEX
+FONT_SIZE = .4
+TEXT_BORDER=10
 
 
 def white_out_text(img,component,max_size=0,min_size=0,color=(255,255,255)):
-	if min_size > 0 and area_bb(component)**0.5<min_size: return
-	if max_size > 0 and area_bb(component)**0.5>max_size: return
-	#a = area_nz(component,img)
-	#if a<min_size: continue
-	#if a>max_size: continue
-	(ys,xs)=component[:2]
-	cv2.rectangle(img,(xs.start,ys.start),(xs.stop,ys.stop),color,-1)
+    if min_size > 0 and area_bb(component)**0.5<min_size: return
+    if max_size > 0 and area_bb(component)**0.5>max_size: return
+    #a = area_nz(component,img)
+    #if a<min_size: continue
+    #if a>max_size: continue
+    (ys,xs)=component[:2]
+    cv2.rectangle(img,(xs.start,ys.start),(xs.stop,ys.stop),color,-1)
 
 def scale_components(connected_components, factor=TEXT_BORDER):
-	new_comps = []
-	for component in connected_components:
-		new_comps.append((
-			slice(component[0].start-factor, component[0].stop+factor),
-			slice(component[1].start-factor, component[1].stop+factor),
-			))
-	return new_comps
+    new_comps = []
+    for component in connected_components:
+        new_comps.append((
+            slice(component[0].start-factor, component[0].stop+factor),
+            slice(component[1].start-factor, component[1].stop+factor),
+            ))
+    return new_comps
 
 
 def text_within(component, text, x=True):
-	shape = cv2.getTextSize(text, cv2.FONT_HERSHEY_PLAIN, 1, 2)[0]
-	
-	if x:
-		return shape[0] <= component[1].stop-component[1].start
-	else:
-		print component[0].stop - component[0].start
-		print shape[1]
-		print shape[1]<=component[0].stop - component[0].start
-		return shape[1] <= component[0].stop - component[0].start
+    shape = cv2.getTextSize(text, cv2.FONT_HERSHEY_PLAIN, 1, 2)[0]
+    
+    if x:
+        return shape[0] <= component[1].stop-component[1].start
+    else:
+        return shape[1] <= component[0].stop - component[0].start
 
 def add_text(img, component, text=None):
-	height = cv2.getTextSize("a", cv2.FONT_HERSHEY_PLAIN, 1, 2)[0][1]
-	if text == None:
-		line = "a"
-		text = ""
-		while text_within(component, line, x=True):
-			line += "a"
-		for i in range(component[0].start + height, component[0].stop+height, height):
-			cv2.putText(img, line, (component[1].start, i), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,0))
+    text = text.encode('ascii', 'ignore')
+    text = text.split()
+    # image = Image.fromarray(img, 'RGB')
+    # cv2.imshow("Hi", np.array(image))
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows() 
+    height = cv2.getTextSize("a", FONT, FONT_SIZE+.2, 2)[0][1]
+    if text == None:
+        line = "a"
+        text = ""
+        while text_within(component, line, x=True):
+            line += "a"
+        for i in range(component[0].start + height, component[0].stop+height, height):
+            cv2.putText(img, line, (component[1].start, i), FONT, FONT_SIZE, (0,0,0))
 
-	else:
-		index = 0
-		line = text[index]
-		while text_within(component, line, x=True):
-			index += 1
-			line += text[index]
-		lines = [line]
-		for i in range(index, len(text), index):
-			lines.append(text[i:i+index])
-		lines.append(text[i:])
-		for line, i in enumerate(range(component[0].start + height, component[0].stop+height, height)):
-			if line >= len(lines): break
-			cv2.putText(img, lines[line], (component[1].start, i), cv2.FONT_HERSHEY_PLAIN, 1, (0,0,0))
+    elif len(text) > 0:
+        # print "drawing: ", text
+        # draw = ImageDraw.Draw(image)
+        # font = ImageFont.truetype("/usr/share/fonts/truetype/font-awesome/fontawesome-webfont.ttf",10)
+        # draw.text((component[1].start, component[0].start), "Hi", font=font)
+        index = 0
+        lines = []
+        count = 10
+        while index<len(text) - 1:
+            line = ""
+            while text_within(component, line, x=True) and index<len(text)-1:
+                line = " ".join((line, text[index]))
+                index += 1
+
+            lines.append(line)
+
+        # for i in range(index, len(text), index):
+        #     lines.append(text[i:i+index])
+        # lines.append(text[i+index:])
+        print lines
+        for line, i in enumerate(range(component[0].start + height, component[0].stop+height, height)):
+            if line >= len(lines): break
+            lines[line]
+            #draw.text((component[1].start, i), text, font=font)
+            cv2.putText(img, lines[line], (component[1].start, i), FONT, FONT_SIZE, (0,0,0))
 
 
 def overlaps(comp1, comp2):
-	overlaps_y = False
-	overlaps_x = False
-	#overlaps y
-	if comp1[0].start >= comp2[0].start and comp1[0].start <= comp2[0].stop:
-		overlaps_y = True
-	elif comp2[0].start >= comp1[0].start and comp2[0].start <= comp1[0].stop:
-		overlaps_y = True
-	#overlaps x
-	if comp1[1].start >= comp2[1].start and comp1[1].start <= comp2[1].stop:
-		overlaps_x = True
-	elif comp2[1].start >= comp1[1].start and comp2[1].start <= comp1[1].stop:
-		overlaps_x = True
-	return overlaps_y and overlaps_x
+    overlaps_y = False
+    overlaps_x = False
+    #overlaps y
+    if comp1[0].start >= comp2[0].start and comp1[0].start <= comp2[0].stop:
+        overlaps_y = True
+    elif comp2[0].start >= comp1[0].start and comp2[0].start <= comp1[0].stop:
+        overlaps_y = True
+    #overlaps x
+    if comp1[1].start >= comp2[1].start and comp1[1].start <= comp2[1].stop:
+        overlaps_x = True
+    elif comp2[1].start >= comp1[1].start and comp2[1].start <= comp1[1].stop:
+        overlaps_x = True
+    return overlaps_y and overlaps_x
 
 
 def get_connected_components(img):
-	components = cc.get_connected_components(img)
-	components = scale_components(components)
-	connected = UnionFind()
-	for comp1 in components:
-		for comp2 in components:
-			if overlaps(comp1,comp2):
-				connected.union((comp1[0].start, comp1[0].stop, comp1[1].start, comp1[1].stop),
-								 (comp2[0].start, comp2[0].stop, comp2[1].start, comp2[1].stop))
-	
-	connected_sets = {}
-	for child, parent in connected.parents.iteritems():
-		if parent not in connected_sets:
-			connected_sets[parent] = []
-		connected_sets[parent].append(child)
+    components = cc.get_connected_components(img)
+    components = scale_components(components)
+    connected = UnionFind()
+    for comp1 in components:
+        for comp2 in components:
+            if overlaps(comp1,comp2):
+                connected.union((comp1[0].start, comp1[0].stop, comp1[1].start, comp1[1].stop),
+                                 (comp2[0].start, comp2[0].stop, comp2[1].start, comp2[1].stop))
+    
+    connected_sets = {}
+    for child, parent in connected.parents.iteritems():
+        if parent not in connected_sets:
+            connected_sets[parent] = []
+        connected_sets[parent].append(child)
 
-	connected_comps = []
+    connected_comps = []
 
-	for a, comps in connected_sets.iteritems():
-		min_y = min(comps, key=lambda item: item[0])[0]
-		max_y = max(comps, key=lambda item: item[1])[1]
-		min_x = min(comps, key=lambda item: item[2])[2]
-		max_x = max(comps, key=lambda item: item[3])[3]
-		connected_comps.append((slice(min_y, max_y), slice(min_x, max_x)))
-	return connected_comps
+    for a, comps in connected_sets.iteritems():
+        min_y = min(comps, key=lambda item: item[0])[0]
+        max_y = max(comps, key=lambda item: item[1])[1]
+        min_x = min(comps, key=lambda item: item[2])[2]
+        max_x = max(comps, key=lambda item: item[3])[3]
+        connected_comps.append((slice(min_y, max_y), slice(min_x, max_x)))
+    return connected_comps
 
 
 def translate_page(img, binary_threshold=defaults.BINARY_THRESHOLD):
@@ -130,14 +150,18 @@ def translate_page(img, binary_threshold=defaults.BINARY_THRESHOLD):
   components = get_connected_components(segmented_image)
 
   for component in components:
-  	speech = img[component]
-  	translation = helper.ocr(speech)
-  	if len(translation) > 0:
-		white_out_text(img, component)
-  		add_text(img, component, translation)
-  #cc.draw_bounding_boxes(img,components,color=(255,0,0),line_size=2)
+    speech = img[component]
+    if speech.shape[0] <=0 or speech.shape[1] <=0:
+        continue
+    translation = helper.ocr(speech)
+    if len(translation) > 0:
+        #print "added component", translation
+        white_out_text(img, component)
+        add_text(img, component, translation)
+
+  cc.draw_bounding_boxes(img,components,color=(255,0,0),line_size=2)
   return img
-	
+    
 
 if __name__ == '__main__':
 
@@ -160,10 +184,11 @@ if __name__ == '__main__':
   outfile = arg.string_value('outfile',default_value=infile + '.text_areas.png')
 
   if not os.path.isfile(infile):
-    print 'Please provide a regular existing input file. Use -h option for help.'
+    print('Please provide a regular existing input file. Use -h option for help.')
     sys.exit(-1)
   img = cv2.imread(infile)
   translate_page(img)
+  cv2.imwrite(arg.string_value('outfile'), img)
   cv2.imshow("Hi", img)
   cv2.waitKey(0)
   cv2.destroyAllWindows()  
